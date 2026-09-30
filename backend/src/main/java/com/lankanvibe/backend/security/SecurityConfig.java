@@ -45,10 +45,15 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/subscribers").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/images/**").permitAll()
 
                 // Review routes for Customers & Admins (must precede admin /api/products/** rule)
                 .requestMatchers(HttpMethod.POST, "/api/products/*/reviews").hasAnyRole("CUSTOMER", "ADMIN")
                 .requestMatchers("/api/reviews/**").hasAnyRole("CUSTOMER", "ADMIN")
+
+                // Cloudinary Image Upload & Delete (Admin)
+                .requestMatchers(HttpMethod.POST, "/api/images/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/images/**").hasRole("ADMIN")
 
                 // Admin-only routes
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
