@@ -23,6 +23,7 @@ import AdminPage from './pages/AdminPage';
 function AppLayout() {
   const location = useLocation();
   const isHomePage = location.pathname === '/' && !location.search;
+  const isCheckoutPage = location.pathname === '/checkout';
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-neutral-900">
@@ -54,17 +55,20 @@ function AppLayout() {
         }}
       />
 
-      {/* Navigation Header — fixed, overlays hero on homepage */}
-      <Navbar />
+      {/* Navigation Header — hidden on dedicated checkout page */}
+      {!isCheckoutPage && <Navbar />}
 
       {/* Main Content Viewport
           On homepage the hero goes behind the navbar (no top padding).
           On all other pages we add padding-top so content isn't hidden. */}
-      <main className={`flex-1 ${isHomePage ? '' : 'pt-20'}`}>
+      <main className={`flex-1 ${isCheckoutPage ? '' : isHomePage ? '' : 'pt-20'}`}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/category/:slug" element={<ShopPage />} />
+          <Route path="/men" element={<ShopPage initialCategory="Men" />} />
+          <Route path="/women" element={<ShopPage initialCategory="Women" />} />
+          <Route path="/unisex" element={<ShopPage initialCategory="Unisex" />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
@@ -93,8 +97,8 @@ function AppLayout() {
         </Routes>
       </main>
 
-      {/* Footer */}
-      <Footer />
+      {/* Footer — hidden on dedicated checkout page */}
+      {!isCheckoutPage && <Footer />}
     </div>
   );
 }
