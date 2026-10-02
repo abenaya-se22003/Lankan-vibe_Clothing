@@ -17,6 +17,7 @@ import {
   FiRefreshCw,
   FiExternalLink,
 } from 'react-icons/fi';
+import { parseOptions, formatOptions, STANDARD_SIZES } from '../utils/productOptions';
 
 const AdminPage = () => {
   const { user, isAdmin, isAuthenticated } = useAuth();
@@ -32,11 +33,34 @@ const AdminPage = () => {
     description: '',
     price: '',
     category: 'Men',
-    size: 'M',
-    color: 'Ceylon Blue',
+    size: 'XS, S, M, L, (XL), XXL',
+    color: 'Ocean Blue, (Sunset Coral)',
     imageUrl: '',
     stockQuantity: 20,
   });
+
+  // Helper to toggle a size between Available -> Unavailable (X) -> Removed
+  const toggleSizeInForm = (sizeName) => {
+    const currentOptions = parseOptions(productForm.size);
+    const existingIndex = currentOptions.findIndex(
+      (opt) => opt.name.toUpperCase() === sizeName.toUpperCase()
+    );
+
+    let updated = [...currentOptions];
+    if (existingIndex === -1) {
+      // 1. Not in list -> Add as Available
+      updated.push({ name: sizeName, available: true, raw: sizeName });
+    } else if (updated[existingIndex].available) {
+      // 2. Available -> Switch to Unavailable / Out of Stock
+      updated[existingIndex].available = false;
+    } else {
+      // 3. Unavailable -> Remove from list
+      updated.splice(existingIndex, 1);
+    }
+
+    const newSizeString = formatOptions(updated);
+    setProductForm((prev) => ({ ...prev, size: newSizeString }));
+  };
 
   // Orders state
   const [orders, setOrders] = useState([]);
@@ -102,8 +126,8 @@ const AdminPage = () => {
       description: '',
       price: '',
       category: 'Men',
-      size: 'M',
-      color: 'Indigo',
+      size: 'XS, S, M, L, (XL), XXL',
+      color: 'Ocean Blue, (Sunset Coral)',
       imageUrl: '',
       stockQuantity: 20,
     });
@@ -352,8 +376,27 @@ const AdminPage = () => {
                           {p.stockQuantity} units
                         </span>
                       </td>
-                      <td className="py-4 px-4 text-gray-400">
-                        {p.size || 'M'} • {p.color || 'Standard'}
+                      <td className="py-4 px-4 text-gray-300">
+                        <div className="flex flex-wrap gap-1 items-center max-w-[220px]">
+                          {parseOptions(p.size, ['M']).map((s) => (
+                            <span
+                              key={s.name}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                s.available
+                                  ? 'bg-[#1b2238] text-white border border-[#2b3558]'
+                                  : 'bg-red-950/40 text-red-400 border border-red-800/40 line-through'
+                              }`}
+                              title={s.available ? `${s.name} (Available)` : `${s.name} (Out of Stock)`}
+                            >
+                              {s.name}
+                            </span>
+                          ))}
+                        </div>
+                        {p.color && (
+                          <div className="text-[10px] text-gray-400 mt-1 truncate max-w-[220px]" title={p.color}>
+                            {p.color}
+                          </div>
+                        )}
                       </td>
                       <td className="py-4 px-6 text-right space-x-2">
                         <button
@@ -635,48 +678,190 @@ const AdminPage = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1">
-                    Category
+              {/* Category */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">
+                  Category *
+                </label>
+                <select
+                  value={productForm.category}
+                  onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                  className="w-full bg-[#0c0e1a] text-xs text-white rounded-xl p-3 border border-[#232742] focus:outline-none focus:border-[#e94560]"
+                >
+                  <option value="Men">Men</option>
+                  <option value="Women">Women</option>
+                  <option value="Unisex">Unisex</option>
+                  <option value="Casual">Casual</option>
+                </select>
+              </div>
+
+              {/* ─── SIZES SECTION (Interactive Builder) ─── */}
+              <div className="bg-[#0c0e1a] p-4 rounded-2xl border border-[#232742] space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-gray-200 uppercase tracking-wider">
+                    Sizes & Stock Availability
                   </label>
-                  <select
-                    value={productForm.category}
-                    onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                    className="w-full bg-[#0c0e1a] text-xs text-white rounded-xl p-3 border border-[#232742] focus:outline-none focus:border-[#e94560]"
-                  >
-                    <option value="Men">Men</option>
-                    <option value="Women">Women</option>
-                    <option value="Unisex">Unisex</option>
-                    <option value="Casual">Casual</option>
-                  </select>
+                  <span className="text-[10px] text-gray-400">
+                    Click chip to cycle: Available ✓ → Out of Stock (X) → Remove
+                  </span>
                 </div>
 
+                {/* Preset Chips */}
+                <div className="flex flex-wrap gap-2">
+                  {STANDARD_SIZES.map((sz) => {
+                    const currentSizes = parseOptions(productForm.size);
+                    const found = currentSizes.find(
+                      (item) => item.name.toUpperCase() === sz.toUpperCase()
+                    );
+                    const isAvailable = found && found.available;
+                    const isUnavailable = found && !found.available;
+
+                    return (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => toggleSizeInForm(sz)}
+                        title={
+                          !found
+                            ? `Click to add ${sz}`
+                            : isAvailable
+                            ? `Click to mark ${sz} as out of stock (X)`
+                            : `Click to remove ${sz}`
+                        }
+                        className={`relative min-w-[50px] h-9 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 border ${
+                          isAvailable
+                            ? 'bg-[#1e293b] text-white border-emerald-500/70 shadow-sm'
+                            : isUnavailable
+                            ? 'bg-[#1c121e] text-red-300 border-red-500/70'
+                            : 'bg-[#131626] text-gray-400 border-[#232742] hover:border-gray-500'
+                        }`}
+                      >
+                        <span>{sz}</span>
+                        {isAvailable && <span className="text-[11px] text-emerald-400">✓</span>}
+                        {isUnavailable && (
+                          <>
+                            <span className="text-[10px] text-red-400 font-bold">(OOS)</span>
+                            <svg
+                              className="absolute inset-0 w-full h-full pointer-events-none stroke-red-500/50"
+                              preserveAspectRatio="none"
+                              viewBox="0 0 100 100"
+                            >
+                              <line x1="0" y1="0" x2="100" y2="100" strokeWidth="1.5" stroke="currentColor" />
+                              <line x1="100" y1="0" x2="0" y2="100" strokeWidth="1.5" stroke="currentColor" />
+                            </svg>
+                          </>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Direct Text Input */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1">
-                    Size
-                  </label>
                   <input
                     type="text"
-                    placeholder="L or Free Size"
+                    placeholder="e.g. XS, S, M, L, (XL), XXL"
                     value={productForm.size}
                     onChange={(e) => setProductForm({ ...productForm, size: e.target.value })}
-                    className="w-full bg-[#0c0e1a] text-xs text-white rounded-xl p-3 border border-[#232742] focus:outline-none focus:border-[#e94560]"
+                    className="w-full bg-[#131626] text-xs text-white rounded-xl p-3 border border-[#232742] focus:outline-none focus:border-[#e94560]"
                   />
+                  <p className="text-[11px] text-gray-400 mt-1.5">
+                    Wrap unavailable sizes in parentheses like <span className="text-white font-mono bg-[#1c2038] px-1 py-0.5 rounded">(XL)</span> to display them with a diagonal crossed-out X.
+                  </p>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1">
-                    Color / Motif
+                {/* Live Customer Preview */}
+                {productForm.size && (
+                  <div className="pt-2 border-t border-[#1e233d]">
+                    <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-2">
+                      Customer Store Preview:
+                    </span>
+                    <div className="flex flex-wrap gap-2 bg-neutral-100 p-2.5 rounded-xl border border-neutral-300">
+                      {parseOptions(productForm.size).map((item) => (
+                        <div
+                          key={item.name}
+                          className={`relative min-w-[44px] h-10 px-2 rounded border flex items-center justify-center text-xs font-semibold ${
+                            item.available
+                              ? 'bg-white text-neutral-900 border-neutral-300'
+                              : 'bg-white text-neutral-400 border-neutral-300'
+                          }`}
+                        >
+                          <span className={!item.available ? 'text-neutral-400 font-normal' : ''}>
+                            {item.name}
+                          </span>
+                          {!item.available && (
+                            <svg
+                              className="absolute inset-0 w-full h-full pointer-events-none stroke-neutral-400"
+                              preserveAspectRatio="none"
+                              viewBox="0 0 100 100"
+                            >
+                              <line x1="0" y1="0" x2="100" y2="100" strokeWidth="1.2" stroke="currentColor" />
+                              <line x1="100" y1="0" x2="0" y2="100" strokeWidth="1.2" stroke="currentColor" />
+                            </svg>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ─── COLOR / MOTIF SECTION (Interactive Builder) ─── */}
+              <div className="bg-[#0c0e1a] p-4 rounded-2xl border border-[#232742] space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-gray-200 uppercase tracking-wider">
+                    Colors / Motifs
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Ocean Blue"
-                    value={productForm.color}
-                    onChange={(e) => setProductForm({ ...productForm, color: e.target.value })}
-                    className="w-full bg-[#0c0e1a] text-xs text-white rounded-xl p-3 border border-[#232742] focus:outline-none focus:border-[#e94560]"
-                  />
+                  <span className="text-[10px] text-gray-400">
+                    Use (Color) for out-of-stock
+                  </span>
                 </div>
+
+                <input
+                  type="text"
+                  placeholder="e.g. Ocean Blue, (Sunset Coral), Off White"
+                  value={productForm.color}
+                  onChange={(e) => setProductForm({ ...productForm, color: e.target.value })}
+                  className="w-full bg-[#131626] text-xs text-white rounded-xl p-3 border border-[#232742] focus:outline-none focus:border-[#e94560]"
+                />
+                <p className="text-[11px] text-gray-400">
+                  Wrap unavailable colors in parentheses like <span className="text-white font-mono bg-[#1c2038] px-1 py-0.5 rounded">(Sunset Coral)</span> to display as crossed out.
+                </p>
+
+                {/* Live Customer Preview */}
+                {productForm.color && (
+                  <div className="pt-2 border-t border-[#1e233d]">
+                    <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-2">
+                      Customer Store Preview:
+                    </span>
+                    <div className="flex flex-wrap gap-2 bg-neutral-100 p-2.5 rounded-xl border border-neutral-300">
+                      {parseOptions(productForm.color).map((item) => (
+                        <div
+                          key={item.name}
+                          className={`relative px-3 h-8 rounded border flex items-center justify-center text-xs font-semibold ${
+                            item.available
+                              ? 'bg-white text-neutral-900 border-neutral-300'
+                              : 'bg-white text-neutral-400 border-neutral-300'
+                          }`}
+                        >
+                          <span className={!item.available ? 'text-neutral-400 font-normal' : ''}>
+                            {item.name}
+                          </span>
+                          {!item.available && (
+                            <svg
+                              className="absolute inset-0 w-full h-full pointer-events-none stroke-neutral-400"
+                              preserveAspectRatio="none"
+                              viewBox="0 0 100 100"
+                            >
+                              <line x1="0" y1="0" x2="100" y2="100" strokeWidth="1.2" stroke="currentColor" />
+                              <line x1="100" y1="0" x2="0" y2="100" strokeWidth="1.2" stroke="currentColor" />
+                            </svg>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
