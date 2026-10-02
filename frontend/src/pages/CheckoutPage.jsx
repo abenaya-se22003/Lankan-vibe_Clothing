@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { orderAPI } from '../services/api';
+import { orderAPI, paymentAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   FiCheckCircle,
@@ -10,12 +10,14 @@ import {
   FiChevronDown,
   FiArrowRight,
   FiShoppingBag,
+  FiExternalLink,
 } from 'react-icons/fi';
 
 const CheckoutPage = () => {
   const { user } = useAuth();
   const { cart, clearCart } = useCart();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Contact State
   const [emailOrPhone, setEmailOrPhone] = useState(user?.email || user?.phone || '');
@@ -91,12 +93,112 @@ const CheckoutPage = () => {
     }
   };
 
+  // Helper function to programmatically POST and redirect to PayHere sandbox
+  const redirectToPayHere = (payHereParams) => {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = payHereParams.actionUrl || 'https://sandbox.payhere.lk/pay/checkout';
+    form.style.display = 'none';
+
+    const fields = {
+      merchant_id: payHereParams.merchantId,
+      return_url: payHereParams.returnUrl,
+      cancel_url: payHereParams.cancelUrl,
+      notify_url: payHereParams.notifyUrl,
+      order_id: payHereParams.orderId,
+      items: payHereParams.items,
+      currency: payHereParams.currency,
+      amount: payHereParams.amount,
+      first_name: payHereParams.firstName,
+      last_name: payHereParams.lastName,
+      email: payHereParams.email,
+      phone: payHereParams.phone,
+      address: payHereParams.address,
+      city: payHereParams.city,
+      country: payHereParams.country,
+      hash: payHereParams.hash,
+    };
+
+    Object.entries(fields).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== '') {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = String(val);
+        form.appendChild(input);
+      }
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+  };
+
+  // Listen for PayHere return URL params (success or cancelled)
+  useEffect(() => {
+    const status = searchParams.get('status');
+    const returnOrderId = searchParams.get('orderId');
+    if (status === 'success' && returnOrderId) {
+      setCompletedOrder({
+        id: returnOrderId,
+        paymentMethod: 'PAYHERE',
+        totalAmount: grandTotal,
+        shippingAddress: address || 'Your Delivery Address',
+        city: city || 'Colombo',
+      });
+      clearCart();
+      toast.success('PayHere transaction successful! Order confirmed.');
+    } else if (status === 'cancelled') {
+      toast.error('Payment cancelled on PayHere. You can retry anytime.');
+    }
+  }, [searchParams]);
+
   const handleSubmitOrder = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
 
     if (!address.trim() || !city.trim() || (!phone.trim() && !emailOrPhone.trim())) {
-      toast.error('Please complete all required delivery fields');
+      toast.error('Please complete all required delivery fields (Address, City, Phone)');
       return;
+    }
+
+    // ─── PayHere Redirection Flow ───
+    if (paymentMethod === 'PAYHERE') {
+      try {
+        setSubmitting(true);
+        const orderId = `LV-${Math.floor(100000 + Math.random() * 900000)}`;
+        const itemsSummary = items.map((i) => i.productName).join(', ') || 'Lankan Vibe Apparel';
+        const customerEmail = emailOrPhone.includes('@')
+          ? emailOrPhone.trim()
+          : (user?.email || 'customer@lankanvibe.com');
+        const customerPhone = phone.trim() || emailOrPhone.trim() || '0771234567';
+
+        const initiatePayload = {
+          orderId,
+          amount: grandTotal,
+          currency: 'LKR',
+          firstName: firstName.trim() || 'Valued',
+          lastName: lastName.trim() || 'Customer',
+          email: customerEmail,
+          phone: customerPhone,
+          address: apartment ? `${address.trim()}, ${apartment.trim()}` : address.trim(),
+          city: city.trim(),
+          country: 'Sri Lanka',
+          items: itemsSummary,
+          returnUrl: `${window.location.origin}/checkout?status=success&orderId=${orderId}`,
+          cancelUrl: `${window.location.origin}/checkout?status=cancelled&orderId=${orderId}`,
+        };
+
+        toast.loading('Redirecting to PayHere secure gateway...', { id: 'payhere-toast' });
+        const response = await paymentAPI.initiatePayHere(initiatePayload);
+        toast.dismiss('payhere-toast');
+        redirectToPayHere(response);
+        return;
+      } catch (err) {
+        console.error('PayHere initiation error:', err);
+        toast.dismiss('payhere-toast');
+        toast.error('Failed to connect to PayHere gateway. Please try again.');
+        setSubmitting(false);
+        return;
+      }
     }
 
     try {
@@ -476,8 +578,20 @@ const CheckoutPage = () => {
                     </div>
                   </label>
                   {paymentMethod === 'PAYHERE' && (
-                    <div className="p-4 bg-[#f9f9f9] border-t border-neutral-200 text-xs text-neutral-600 leading-relaxed">
-                      Direct online payment via PayHere gateway with all Sri Lankan banks & credit/debit cards.
+                    <div className="p-4 bg-[#f9f9f9] border-t border-neutral-200 space-y-3">
+                      <p className="text-xs text-neutral-600 leading-relaxed">
+                        Direct online payment via PayHere gateway with all Sri Lankan banks & credit/debit cards.
+                      </p>
+                      <button
+                        type="button"
+                        id="payhere-redirect-btn"
+                        onClick={handleSubmitOrder}
+                        disabled={submitting}
+                        className="w-full sm:w-auto px-6 py-2.5 bg-[#c58b10] hover:bg-[#b07b0c] active:scale-95 text-white text-xs font-bold uppercase tracking-wider rounded-md transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <span>{submitting ? 'Redirecting...' : 'Proceed to PayHere Gateway'}</span>
+                        <FiExternalLink className="text-sm" />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -522,10 +636,16 @@ const CheckoutPage = () => {
             <div className="pt-2">
               <button
                 type="submit"
+                id="main-pay-btn"
                 disabled={submitting}
-                className="w-full py-4 bg-[#c58b10] hover:bg-[#b07b0c] text-white font-bold text-sm tracking-wide rounded-lg transition shadow-md disabled:opacity-50"
+                className="w-full py-4 bg-[#c58b10] hover:bg-[#b07b0c] active:scale-[0.99] text-white font-bold text-sm tracking-wide rounded-lg transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
               >
-                {submitting ? 'Processing...' : 'Pay now'}
+                {submitting
+                  ? 'Connecting to PayHere...'
+                  : paymentMethod === 'PAYHERE'
+                  ? `Pay with PayHere (${formatRs(grandTotal)})`
+                  : 'Pay now'}
+                {paymentMethod === 'PAYHERE' && !submitting && <FiExternalLink className="text-base" />}
               </button>
             </div>
 

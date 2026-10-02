@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// Create configured axios instance
+// Create configured axios instance (uses VITE_API_URL in production, /api in local dev)
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -147,6 +147,14 @@ export const orderAPI = {
   },
   updateStatus: async (orderId, status) => {
     const res = await api.put(`/admin/orders/${orderId}/status`, { status });
+    return res.data;
+  },
+};
+
+// ===== PayHere Payment API =====
+export const paymentAPI = {
+  initiatePayHere: async (paymentData) => {
+    const res = await api.post('/payment/payhere/initiate', paymentData);
     return res.data;
   },
 };

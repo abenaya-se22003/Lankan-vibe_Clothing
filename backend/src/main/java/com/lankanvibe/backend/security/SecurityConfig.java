@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/subscribers").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/images/**").permitAll()
+                .requestMatchers("/api/payment/**").permitAll()
 
                 // Review routes for Customers & Admins (must precede admin /api/products/** rule)
                 .requestMatchers(HttpMethod.POST, "/api/products/*/reviews").hasAnyRole("CUSTOMER", "ADMIN")
