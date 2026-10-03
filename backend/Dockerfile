@@ -26,9 +26,8 @@ USER appuser
 # Copy jar from build stage
 COPY --from=build /app/target/*.jar app.jar
 
-# Render injects PORT environment variable
-ENV PORT=5000
-EXPOSE ${PORT}
+# Render injects PORT environment variable (default 10000 for Docker services)
+EXPOSE 10000
 
 # Run Spring Boot application with memory optimization for Render's 512MB RAM free tier
 ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-Xss512k", "-jar", "app.jar"]
