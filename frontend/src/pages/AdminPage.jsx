@@ -691,6 +691,7 @@ const AdminPage = () => {
                   <option value="Men">Men</option>
                   <option value="Women">Women</option>
                   <option value="Unisex">Unisex</option>
+                  <option value="Accessories">Accessories</option>
                   <option value="Casual">Casual</option>
                 </select>
               </div>
