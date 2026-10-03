@@ -2,13 +2,14 @@
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml
+# Copy Maven wrapper and configuration
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 
-# Download dependencies
-RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
+# Ensure Unix line endings, make executable, and resolve dependencies
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
+RUN ./mvnw dependency:go-offline -B || true
 
 # Copy source code and build jar
 COPY src src
@@ -29,5 +30,5 @@ COPY --from=build /app/target/*.jar app.jar
 ENV PORT=5000
 EXPOSE ${PORT}
 
-# Run Spring Boot application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run Spring Boot application with memory optimization for Render's 512MB RAM free tier
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-Xss512k", "-jar", "app.jar"]
