@@ -34,22 +34,16 @@ const normalizeCart = (rawCart) => {
       })
     : [];
 
-  const totalItems =
-    rawCart.totalItems ??
-    rawCart.totalQuantity ??
-    items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
-  const totalPrice =
-    rawCart.totalPrice ??
-    rawCart.totalAmount ??
-    items.reduce((sum, i) => sum + (Number(i.subtotal) || 0), 0);
+  const totalItems = items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+  const totalPrice = items.reduce((sum, i) => sum + (Number(i.subtotal) || 0), 0);
 
   return {
     ...rawCart,
     items,
-    totalItems: Number(totalItems) || 0,
-    totalQuantity: Number(totalItems) || 0,
-    totalPrice: Number(totalPrice) || 0,
-    totalAmount: Number(totalPrice) || 0,
+    totalItems,
+    totalQuantity: totalItems,
+    totalPrice,
+    totalAmount: totalPrice,
   };
 };
 
